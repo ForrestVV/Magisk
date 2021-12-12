@@ -29,7 +29,7 @@ static void parse_device(devinfo *dev, const char *uevent) {
             dev->minor = parse_int(value.data());
         else if (key == "DEVNAME")
             strcpy(dev->devname, value.data());
-        else if (key == "PARTNAME")
+        else if (key == "PARTNAME") // partition name
             strcpy(dev->partname, value.data());
 
         return true;
@@ -45,7 +45,7 @@ static void collect_devices() {
                 continue;
             sprintf(path, "/sys/dev/block/%s/uevent", entry->d_name);
             parse_device(&dev, path);
-            sprintf(path, "/sys/dev/block/%s/dm/name", entry->d_name);
+            sprintf(path, "/sys/dev/block/%s/dm/name", entry->d_name); // dm : disk mirror
             if (access(path, F_OK) == 0) {
                 auto name = rtrim(full_read(path));
                 strcpy(dev.dmname, name.data());
@@ -56,13 +56,13 @@ static void collect_devices() {
 }
 
 static struct {
-    char partname[32];
-    char block_dev[64];
+    char partname[32]; // userdata or UDA
+    char block_dev[64]; // /dev/block/X
 } blk_info;
 
 static int64_t setup_block(bool write_block) {
     if (dev_list.empty())
-        collect_devices();
+        collect_devices(); // /sys/dev/block/*
     xmkdir("/dev", 0755);
     xmkdir("/dev/block", 0755);
 
@@ -79,8 +79,8 @@ static int64_t setup_block(bool write_block) {
                 sprintf(blk_info.block_dev, "/dev/block/%s", dev.devname);
             }
             dev_t rdev = makedev(dev.major, dev.minor);
-            xmknod(blk_info.block_dev, S_IFBLK | 0600, rdev);
-            return rdev;
+            xmknod(blk_info.block_dev, S_IFBLK | 0600, rdev); // 从 /sys/dev/block/* 找到一个，创建一个设备文件 /dev/block/X
+            return rdev; // 找到一个符合的，就返回了
         }
         // Wait 10ms and try again
         usleep(10000);
@@ -167,6 +167,7 @@ void MagiskInit::mount_with_dt() {
     }
 }
 
+// 当前 /proc/mounts 记录的挂载信息，都往 /system_root里挂载一次
 static void switch_root(const string &path) {
     LOGD("Switch root to %s\n", path.data());
     int root = xopen("/", O_RDONLY);
@@ -186,6 +187,7 @@ static void switch_root(const string &path) {
     for (auto &dir : mounts) {
         auto new_path = path + dir;
         xmkdir(new_path.data(), 0755);
+        // 将dir（设备、文件、目录）挂载到new_path
         xmount(dir.data(), new_path.data(), nullptr, MS_MOVE, nullptr);
     }
     chdir(path.data());
@@ -196,6 +198,8 @@ static void switch_root(const string &path) {
     frm_rf(root);
 }
 
+// 从 /sys/dev/block找到符合条件的设备，在/dev/block/X 创建该设备文件，并挂载到 /dev/mnt/X
+// 从 /sys/dev/block找到符合条件的设备，在.magisk/block/X 创建该设备文件，并挂载到 .magisk/miror/X
 void MagiskInit::mount_rules_dir(const char *dev_base, const char *mnt_base) {
     char path[128];
     xrealpath(dev_base, blk_info.block_dev);
@@ -204,7 +208,7 @@ void MagiskInit::mount_rules_dir(const char *dev_base, const char *mnt_base) {
     char *p = path + strlen(path);
 
     auto do_mount = [&](const char *type) -> bool {
-        xmkdir(path, 0755);
+        xmkdir(path, 0755); // mount /dev/block/X to /dev/mnt/X
         bool success = xmount(blk_info.block_dev, path, type, 0, nullptr) == 0;
         if (success)
             mount_list.emplace_back(path);
@@ -215,7 +219,7 @@ void MagiskInit::mount_rules_dir(const char *dev_base, const char *mnt_base) {
     strcpy(blk_info.partname, "userdata");
     strcpy(b, "/data");
     strcpy(p, "/data");
-    if (setup_block(false) < 0) {
+    if (setup_block(false) < 0) { // /dev/block/data  /dev/mnt/data
         // Try NVIDIA naming scheme
         strcpy(blk_info.partname, "UDA");
         if (setup_block(false) < 0)
@@ -226,21 +230,21 @@ void MagiskInit::mount_rules_dir(const char *dev_base, const char *mnt_base) {
     if (!do_mount("ext4"))
         goto cache;
 
-    strcpy(p, "/data/unencrypted");
+    strcpy(p, "/data/unencrypted"); // /dev/mnt/data/unencrypted
     if (xaccess(path, F_OK) == 0) {
         // FBE, need to use an unencrypted path
-        custom_rules_dir = path + "/magisk"s;
+        custom_rules_dir = path + "/magisk"s; // /dev/mnt/data/unencrypted/magisk
     } else {
         // Skip if /data/adb does not exist
-        strcpy(p, SECURE_DIR);
+        strcpy(p, SECURE_DIR); // /dev/mnt/data/adb
         if (xaccess(path, F_OK) != 0)
             return;
-        strcpy(p, MODULEROOT);
+        strcpy(p, MODULEROOT); // /dev/mnt/data/adb/moudules
         if (xaccess(path, F_OK) != 0) {
             goto cache;
         }
         // Unencrypted, directly use module paths
-        custom_rules_dir = string(path);
+        custom_rules_dir = string(path); // /dev/mnt/data/unencrypted
     }
     goto success;
 
@@ -249,7 +253,7 @@ cache:
     strcpy(blk_info.partname, "cache");
     strcpy(b, "/cache");
     strcpy(p, "/cache");
-    if (setup_block(false) < 0) {
+    if (setup_block(false) < 0) { // /dev/block/cache  /dev/mnt/cache
         // Try NVIDIA naming scheme
         strcpy(blk_info.partname, "CAC");
         if (setup_block(false) < 0)
@@ -257,32 +261,32 @@ cache:
     }
     if (!do_mount("ext4"))
         goto metadata;
-    custom_rules_dir = path + "/magisk"s;
+    custom_rules_dir = path + "/magisk"s; // /dev/mnt/data/cache/magisk
     goto success;
 
 metadata:
     // Fallback to metadata
-    strcpy(blk_info.partname, "metadata");
+    strcpy(blk_info.partname, "metadata"); // /dev/block/metadata  /dev/mnt/metadata
     strcpy(b, "/metadata");
     strcpy(p, "/metadata");
     if (setup_block(false) < 0 || !do_mount("ext4"))
         goto persist;
-    custom_rules_dir = path + "/magisk"s;
+    custom_rules_dir = path + "/magisk"s; // /dev/mnt/data/metadata/magisk
     goto success;
 
 persist:
     // Fallback to persist
-    strcpy(blk_info.partname, "persist");
+    strcpy(blk_info.partname, "persist"); // /dev/block/persist  /dev/mnt/persist
     strcpy(b, "/persist");
     strcpy(p, "/persist");
     if (setup_block(false) < 0 || !do_mount("ext4"))
         return;
-    custom_rules_dir = path + "/magisk"s;
+    custom_rules_dir = path + "/magisk"s; // /dev/mnt/data/persist/magisk
 
 success:
     // Create symlinks so we don't need to go through this logic again
-    strcpy(p, "/sepolicy.rules");
-    xsymlink(custom_rules_dir.data(), path);
+    strcpy(p, "/sepolicy.rules"); // /dev/mnt/data/X/sepolicy.rules
+    xsymlink(custom_rules_dir.data(), path); // 链接：/dev/mnt/data/persist/magisk to /dev/mnt/data/X/sepolicy.rules
 }
 
 void RootFSInit::early_mount() {
@@ -296,7 +300,7 @@ void RootFSInit::early_mount() {
 
 void SARBase::backup_files() {
     if (access("/overlay.d", F_OK) == 0)
-        backup_folder("/overlay.d", overlays);
+        backup_folder("/overlay.d", overlays); // 备份所有文件，这里把文件都读到内存里
 
     self = mmap_data("/proc/self/exe");
     if (access("/.backup/.magisk", R_OK) == 0)
@@ -358,7 +362,7 @@ void SARInit::early_mount() {
 bool SecondStageInit::prepare() {
     backup_files();
 
-    umount2("/init", MNT_DETACH);
+    umount2("/init", MNT_DETACH); // unmount file system
     umount2("/proc/self/exe", MNT_DETACH);
 
     // some weird devices, like meizu, embrace two stage init but still have legacy rootfs behaviour

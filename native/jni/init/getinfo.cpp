@@ -126,17 +126,17 @@ void setup_klog() {
     // Shut down first 3 fds
     int fd;
     if (access("/dev/null", W_OK) == 0) {
-        fd = xopen("/dev/null", O_RDWR | O_CLOEXEC);
+        fd = xopen("/dev/null", O_RDWR | O_CLOEXEC); // O_CLOEXEC 让本进程调用exec时，关闭该fd，以免把fd泄露给子进程
     } else {
-        mknod("/null", S_IFCHR | 0666, makedev(1, 3));
+        mknod("/null", S_IFCHR | 0666, makedev(1, 3)); // 创建字符文件/null，major:1，minor：3
         fd = xopen("/null", O_RDWR | O_CLOEXEC);
-        unlink("/null");
+        unlink("/null"); // 文件名/null被删除，但是进程仍持有 fd
     }
-    xdup3(fd, STDIN_FILENO, O_CLOEXEC);
+    xdup3(fd, STDIN_FILENO, O_CLOEXEC); // 复制文件描述符
     xdup3(fd, STDOUT_FILENO, O_CLOEXEC);
     xdup3(fd, STDERR_FILENO, O_CLOEXEC);
     if (fd > STDERR_FILENO)
-        close(fd);
+        close(fd); // 关闭文件，但上面复制了3个文件描述符
 
     if (access("/dev/kmsg", W_OK) == 0) {
         fd = xopen("/dev/kmsg", O_WRONLY | O_CLOEXEC);
@@ -153,7 +153,7 @@ void setup_klog() {
     strcpy(kmsg_buf, "magiskinit: ");
 
     // Disable kmsg rate limiting
-    if (FILE *rate = fopen("/proc/sys/kernel/printk_devkmsg", "w")) {
+    if (FILE *rate = fopen("/proc/sys/kernel/printk_devkmsg", "w")) { // kernel message log
         fprintf(rate, "on\n");
         fclose(rate);
     }
@@ -220,7 +220,7 @@ void load_kernel_info(BootConfig *config) {
     setup_klog();
 
     config->set(parse_cmdline(full_read("/proc/cmdline")));
-    LOGD("Kernel cmdline info:\n");
+    LOGD("Kernel cmdline info1:\n");
     config->print();
 
     config->set(parse_bootconfig(full_read("/proc/bootconfig")));
@@ -240,7 +240,7 @@ void load_kernel_info(BootConfig *config) {
         strlcpy(config->dt_dir, DEFAULT_DT_DIR, sizeof(config->dt_dir));
 
     LOGD("Device tree:\n");
-    char file_name[128];
+    char file_name[128]; // fstab : 存储静态挂载配置，重启时解析该文件即可
     read_dt("fstab_suffix", fstab_suffix)
     read_dt("hardware", hardware)
     read_dt("hardware.platform", hardware_plat)

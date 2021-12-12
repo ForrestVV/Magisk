@@ -116,13 +116,23 @@ static int magisk_proxy_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+    setup_klog();
+
+    char cur_dir_buf[128];
+    getcwd(cur_dir_buf, sizeof(cur_dir_buf));
+    LOGD("current dir: %s", cur_dir_buf);
+
+    for (int i = 0; i < argc; ++i) {
+        LOGD("argc[%d]: %s", i, argv[i]);
+    }
+
     umask(0);
 
     auto name = basename(argv[0]);
-    if (name == "magisk"sv)
+    if (name == "magisk"sv) // 本可执行文件的名称是 magisk
         return magisk_proxy_main(argc, argv);
     for (int i = 0; init_applet[i]; ++i) {
-        if (strcmp(name, init_applet[i]) == 0)
+        if (strcmp(name, init_applet[i]) == 0) // 本可执行文件的名称是 magiskpolicy 或 supolicy
             return (*init_applet_main[i])(argc, argv);
     }
 
@@ -131,19 +141,19 @@ int main(int argc, char *argv[]) {
         return test_main(argc, argv);
 #endif
 
-    if (argc > 1 && argv[1] == "-x"sv) {
+    if (argc > 1 && argv[1] == "-x"sv) { // magiskinit -x manager
         if (argc > 2 && argv[2] == "manager"sv)
             return dump_manager(argv[3], 0644);
         return 1;
     }
 
-    if (getpid() != 1)
+    if (getpid() != 1) // 非init（1号）进程
         return 1;
 
     BaseInit *init;
     BootConfig config{};
 
-    if (argc > 1 && argv[1] == "selinux_setup"sv) {
+    if (argc > 1 && argv[1] == "selinux_setup"sv) { // magiskinit selinux_setup
         setup_klog();
         init = new SecondStageInit(argv);
     } else {

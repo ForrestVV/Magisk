@@ -13,6 +13,7 @@ using namespace std;
 
 static vector<string> rc_list;
 
+// TODO 这两个被强制去掉了？是不是可以检测它们存在与否
 static void patch_init_rc(const char *src, const char *dest, const char *tmp_dir) {
     FILE *rc = xfopen(dest, "we");
     if (!rc) {
@@ -206,13 +207,13 @@ void SARBase::patch_rootdir() {
         sepol = "/dev/.se";
     }
 
-    setup_tmp(tmp_dir.data());
+    setup_tmp(tmp_dir.data()); // here，在 /dev 下创建临时目录，保存很多 magisk 的信息
     chdir(tmp_dir.data());
 
     mount_rules_dir(BLOCKDIR, MIRRDIR);
 
     // Mount system_root mirror
-    xmkdir(ROOTMIR, 0755);
+    xmkdir(ROOTMIR, 0755); // .magisk/mirror/system_root
     xmount("/", ROOTMIR, nullptr, MS_BIND, nullptr);
     mount_list.emplace_back(tmp_dir + "/" ROOTMIR);
 
@@ -229,7 +230,7 @@ void SARBase::patch_rootdir() {
             make_pair(SPLIT_PLAT_CIL, "xxx"), /* Force loading monolithic sepolicy */
             make_pair(MONOPOLICY, sepol)      /* Redirect /sepolicy to custom path */
          });
-        xmkdir(ROOTOVL, 0);
+        xmkdir(ROOTOVL, 0); // .magisk/rootdir
         int dest = xopen(ROOTOVL "/init", O_CREAT | O_WRONLY | O_CLOEXEC, 0);
         xwrite(dest, init.buf, init.sz);
         fclone_attr(src, dest);
@@ -264,7 +265,7 @@ void SARBase::patch_rootdir() {
     // Restore backup files
     struct sockaddr_un sun;
     int sockfd = xsocket(AF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (connect(sockfd, (struct sockaddr*) &sun, setup_sockaddr(&sun, INIT_SOCKET)) == 0) {
+    if (connect(sockfd, (struct sockaddr*) &sun, setup_sockaddr(&sun, INIT_SOCKET)) == 0) { // path: MAGISKINIT
         LOGD("ACK init daemon to write backup files\n");
         // Let daemon know where tmp_dir is
         write_string(sockfd, tmp_dir);

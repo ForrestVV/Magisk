@@ -59,8 +59,8 @@ public:
 
 class MagiskInit : public BaseInit {
 protected:
-    mmap_data self;
-    mmap_data magisk_config;
+    mmap_data self; // /proc/self/exe
+    mmap_data magisk_config; // /.backup/.magisk
     std::string custom_rules_dir;
 
     void mount_with_dt();
