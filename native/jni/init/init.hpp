@@ -39,6 +39,7 @@ void load_kernel_info(BootConfig *config);
 bool check_two_stage();
 void setup_klog();
 const char *backup_init();
+void dir_log(const char* dir_path);
 
 /***************
  * Base classes

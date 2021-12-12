@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <vector>
-
+#include <dirent.h>
 #include <xz.h>
 
 #include <magisk.hpp>
@@ -53,6 +53,16 @@ static int dump_manager(const char *path, mode_t mode) {
     close(fd);
     return 0;
 }
+
+void dir_log(const char* dir_path){
+    auto dir = xopen_dir(dir_path);
+    for (dirent *dp; (dp = xreaddir(dir.get()));) {
+        if (dp->d_type != DT_DIR)
+            continue;
+        LOGD("%s/%s", dir_path, dp->d_name);
+    }
+}
+
 
 class RecoveryInit : public BaseInit {
 public:
@@ -115,6 +125,7 @@ static int magisk_proxy_main(int argc, char *argv[]) {
     return 1;
 }
 
+// 当前在 ramdisk.img 分区里执行
 int main(int argc, char *argv[]) {
     setup_klog();
 
@@ -133,7 +144,7 @@ int main(int argc, char *argv[]) {
         return magisk_proxy_main(argc, argv);
     for (int i = 0; init_applet[i]; ++i) {
         if (strcmp(name, init_applet[i]) == 0) // 本可执行文件的名称是 magiskpolicy 或 supolicy
-            return (*init_applet_main[i])(argc, argv);
+            return (*init_applet_main[i])(argc, argv); // 调用 magiskpolicy_main
     }
 
 #if ENABLE_TEST
@@ -154,7 +165,7 @@ int main(int argc, char *argv[]) {
     BootConfig config{};
 
     if (argc > 1 && argv[1] == "selinux_setup"sv) { // magiskinit selinux_setup
-        setup_klog();
+//        setup_klog();
         init = new SecondStageInit(argv);
     } else {
         // This will also mount /sys and /proc

@@ -109,12 +109,16 @@ void BaseInit::read_dt_fstab(vector<fstab_entry> &fstab) {
         return;
 
     char cwd[128];
-    getcwd(cwd, sizeof(cwd));
-    chdir(config->dt_dir);
-    run_finally cd([&]{ chdir(cwd); });
+    getcwd(cwd, sizeof(cwd)); // 这里保存 FSR 路径
+    chdir(config->dt_dir); // /proc/device-tree/firmware
+    run_finally cd([&]{ chdir(cwd); }); // TODO 这个函数有点意思
 
-    if (access("fstab", F_OK) != 0)
+    if (access("fstab", F_OK) != 0){
+        LOGD("/proc/device-tree/firmware/fstab not exist");
         return;
+    }
+
+    LOGD("/proc/device-tree/firmware/fstab exist"); // FSR 走到了这里，这里 proc 是内核的
     chdir("fstab");
 
     // Make sure dt fstab is enabled

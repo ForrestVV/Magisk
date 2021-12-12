@@ -58,15 +58,15 @@ extern uint32_t patch_verity(void *buf, uint32_t size);
 
 void FirstStageInit::prepare() {
     if (config->force_normal_boot) {
-        xmkdirs(FSR "/system/bin", 0755);
-        rename("/init" /* magiskinit */, FSR "/system/bin/init");
-        symlink("/system/bin/init", FSR "/init");
-        rename(backup_init(), "/init");
+        xmkdirs(FSR "/system/bin", 0755); // FSR 即 first_stage_ramdisk，存在于 ramdisk.img
+        rename("/init" /* magiskinit */, FSR "/system/bin/init"); // /init to FSR/system/bin/init
+        symlink("/system/bin/init", FSR "/init"); // FSR/init to /system/bin/init
+        rename(backup_init(), "/init"); // /.backup/init to /init
 
-        rename("/.backup", FSR "/.backup");
-        rename("/overlay.d", FSR "/overlay.d");
+        rename("/.backup", FSR "/.backup"); // /.backup下有一个 init，该init链接到/system/bin/init
+        rename("/overlay.d", FSR "/overlay.d"); // /overlay.d/sbin/ 下，有 magisk32.xz 和 magisk64.xz
 
-        chdir(FSR);
+        chdir(FSR); // 转到 FSR 目录下
     } else {
         xmkdir("/system", 0755);
         xmkdir("/system/bin", 0755);
@@ -86,7 +86,7 @@ void FirstStageInit::prepare() {
             if (access(fstab_file, F_OK) != 0) {
                 fstab_file[0] = '\0';
             } else {
-                LOGD("Found fstab file: %s\n", fstab_file);
+                LOGD("Found fstab file: %s\n", fstab_file); // fstab.sm8150，ramdisk.img带的
                 goto exit_loop;
             }
         }
@@ -95,7 +95,7 @@ exit_loop:
 
     // Try to load dt fstab
     vector<fstab_entry> fstab;
-    read_dt_fstab(fstab);
+    read_dt_fstab(fstab); // 记录 /proc/device-tree/firmware 下所有 fstab
 
     if (!fstab.empty()) {
         // Dump dt fstab to fstab file in rootfs and force init to use it instead
@@ -122,7 +122,7 @@ exit_loop:
         }
 
         // Patch init to force IsDtFstabCompatible() return false
-        auto init = mmap_data("/init", true);
+        auto init = mmap_data("/init", true); // 修改这个 init（这个是 /.backup/init）
         init.patch({ make_pair("android,fstab", "xxx") });
     } else {
         // Parse and load the fstab file
@@ -174,7 +174,7 @@ exit_loop:
             auto len = patch_verity(entry.fsmgr_flags.data(), entry.fsmgr_flags.length());
             entry.fsmgr_flags.resize(len);
 
-            entry.to_file(fp.get());
+            entry.to_file(fp.get()); // TODO 将 /proc/device-tree/firmware 下的fstab 信息，写到 fstab.sm8150， why ?
         }
     }
     chmod(fstab_file, 0644);

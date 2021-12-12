@@ -209,15 +209,19 @@ if (access(file_name, R_OK) == 0) {                                 \
 void load_kernel_info(BootConfig *config) {
     // Get kernel data using procfs and sysfs
     xmkdir("/proc", 0755);
-    xmount("proc", "/proc", "proc", 0, nullptr);
+    dir_log("/proc");
+    xmount("proc", "/proc", "proc", 0, nullptr); // 挂载之前 /proc 是空的
+//    dir_log("/proc");
     xmkdir("/sys", 0755);
-    xmount("sysfs", "/sys", "sysfs", 0, nullptr);
+    dir_log("/sys");
+    xmount("sysfs", "/sys", "sysfs", 0, nullptr); // 挂载之前 /sys 是空的
+//    dir_log("/sys");
 
     mount_list.emplace_back("/proc");
     mount_list.emplace_back("/sys");
 
     // Log to kernel
-    setup_klog();
+//    setup_klog();
 
     config->set(parse_cmdline(full_read("/proc/cmdline")));
     LOGD("Kernel cmdline info1:\n");
@@ -236,11 +240,13 @@ void load_kernel_info(BootConfig *config) {
         return true;
     });
 
-    if (config->dt_dir[0] == '\0')
-        strlcpy(config->dt_dir, DEFAULT_DT_DIR, sizeof(config->dt_dir));
+    if (config->dt_dir[0] == '\0') // dt : device tree
+        strlcpy(config->dt_dir, DEFAULT_DT_DIR, sizeof(config->dt_dir)); // /proc/device-tree/firmware/android
 
     LOGD("Device tree:\n");
-    char file_name[128]; // fstab : 存储静态挂载配置，重启时解析该文件即可
+    LOGD("dt_dir: %s\n", config->dt_dir);
+
+    char file_name[128]; // fstab : 存储静态挂载配置，重启时解析该文件即可，不需要手动重新挂载
     read_dt("fstab_suffix", fstab_suffix)
     read_dt("hardware", hardware)
     read_dt("hardware.platform", hardware_plat)
