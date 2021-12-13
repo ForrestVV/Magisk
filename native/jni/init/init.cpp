@@ -57,8 +57,6 @@ static int dump_manager(const char *path, mode_t mode) {
 void dir_log(const char* dir_path){
     auto dir = xopen_dir(dir_path);
     for (dirent *dp; (dp = xreaddir(dir.get()));) {
-        if (dp->d_type != DT_DIR)
-            continue;
         LOGD("%s/%s", dir_path, dp->d_name);
     }
 }

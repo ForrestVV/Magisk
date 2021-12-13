@@ -171,6 +171,13 @@ void MagiskInit::mount_with_dt() {
     }
 }
 
+static void dir_log2(const char* dir_path){
+    auto dir = xopen_dir(dir_path);
+    for (dirent *dp; (dp = xreaddir(dir.get()));) {
+        LOGD("%s/%s", dir_path, dp->d_name);
+    }
+}
+
 // 当前 /proc/mounts 记录的挂载信息，都往 /system_root里挂载一次
 static void switch_root(const string &path) {
     LOGD("Switch root to %s\n", path.data());
@@ -192,14 +199,23 @@ static void switch_root(const string &path) {
         auto new_path = path + dir;
         xmkdir(new_path.data(), 0755);
         // 将dir（设备、文件、目录）挂载到new_path
-        xmount(dir.data(), new_path.data(), nullptr, MS_MOVE, nullptr);
+        LOGD("mount %s to %s", dir.data(), new_path.data()); // example: /proc to /system_root/proc
+        xmount(dir.data(), new_path.data(), nullptr, MS_MOVE, nullptr); // MS_MOVE : 移动挂载点，相当于 文件 move
     }
     chdir(path.data());
-    xmount(path.data(), "/", nullptr, MS_MOVE, nullptr);
-    chroot(".");
+    LOGD("before /system_root/ move to /");
+    dir_log2("/");
+    dir_log2(path.data());
+    xmount(path.data(), "/", nullptr, MS_MOVE, nullptr); // /system_root/* move to /*
+    LOGD("after /system_root/ move to /");
+    dir_log2("/");
+    dir_log2(path.data()); // /system_root 这个挂载点没了，没有日志信息
+
+    chroot("."); // 当前在 /
 
     LOGD("Cleaning rootfs\n");
-    frm_rf(root);
+    frm_rf(root); // TODO 这个操作后，/ 下包含了 /system_root下所有的文件？why ?
+    dir_log2("/");
 }
 
 // 从 /sys/dev/block找到符合条件的设备，在/dev/block/X 创建该设备文件，并挂载到 /dev/mnt/X
@@ -371,7 +387,8 @@ bool SecondStageInit::prepare() {
 
     // some weird devices, like meizu, embrace two stage init but still have legacy rootfs behaviour
     bool legacy = false;
-    if (access("/system_root", F_OK) == 0) {
+    if (access("/system_root", F_OK) == 0) { // ramdisk.img 在 system 分区，不在传统A/B架构下的boot分区里
+        LOGD("me not A/B, system-as-root");
         if (access("/system_root/proc", F_OK) == 0) {
             switch_root("/system_root");
         } else {
@@ -379,6 +396,8 @@ bool SecondStageInit::prepare() {
             rmdir("/system_root");
             legacy = true;
         }
+    } else{
+        LOGD("me A/B, not system-as-root");
     }
     return legacy;
 }
@@ -391,6 +410,13 @@ void BaseInit::exec_init() {
     }
     execv("/init", argv);
     exit(1);
+}
+
+static void dir_log3(const char* dir_path){
+    auto dir = xopen_dir(dir_path);
+    for (dirent *dp; (dp = xreaddir(dir.get()));) {
+        LOGD("%s/%s", dir_path, dp->d_name);
+    }
 }
 
 void MagiskInit::setup_tmp(const char *path) {
@@ -414,9 +440,11 @@ void MagiskInit::setup_tmp(const char *path) {
 
     // Create applet symlinks
     for (int i = 0; applet_names[i]; ++i)
-        xsymlink("./magisk", applet_names[i]);
-    xsymlink("./magiskinit", "magiskpolicy");
-    xsymlink("./magiskinit", "supolicy");
+        xsymlink("./magisk", applet_names[i]);  // su/resetprop link to magiskinit
+    xsymlink("./magiskinit", "magiskpolicy"); // magiskpolicy link to magiskinit
+    xsymlink("./magiskinit", "supolicy"); // supolicy link to magiskinit
+
+    dir_log3(".");
 
     chdir("/");
 }

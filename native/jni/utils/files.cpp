@@ -70,7 +70,13 @@ static void pre_order_walk(int dirfd, const Func &fn) {
     }
 }
 
+// 空目录的话，删除；如果是软链接，删除软链接；否则，将文件计数-1，技术为0时，该文件被删除。
 static void remove_at(int dirfd, struct dirent *entry) {
+    char path[64];
+    sprintf(path, "/proc/self/fd/%d", dirfd);
+    char path2[64];
+    readlink(path, path2, 64);
+    LOGD("remove_at, entry : %s/%s", path2, entry->d_name);
     unlinkat(dirfd, entry->d_name, entry->d_type == DT_DIR ? AT_REMOVEDIR : 0);
 }
 
@@ -201,6 +207,7 @@ void link_dir(int src, int dest) {
             int dfd = xopenat(dest, entry->d_name, O_RDONLY | O_CLOEXEC);
             link_dir(sfd, dfd);
         } else {
+            // hard link：同一个 inode
             xlinkat(src, entry->d_name, dest, entry->d_name, 0);
         }
     }

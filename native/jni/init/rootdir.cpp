@@ -202,7 +202,7 @@ void SARBase::patch_rootdir() {
     } else {
         char buf[8];
         gen_rand_str(buf, sizeof(buf));
-        tmp_dir = "/dev/"s + buf;
+        tmp_dir = "/dev/"s + buf; // 每次都随机 /dev/XXXX
         xmkdir(tmp_dir.data(), 0);
         sepol = "/dev/.se";
     }
@@ -210,7 +210,7 @@ void SARBase::patch_rootdir() {
     setup_tmp(tmp_dir.data()); // here，在 /dev 下创建临时目录，保存很多 magisk 的信息
     chdir(tmp_dir.data());
 
-    mount_rules_dir(BLOCKDIR, MIRRDIR);
+    mount_rules_dir(BLOCKDIR, MIRRDIR); // .magisk/block to .magisk/mirror
 
     // Mount system_root mirror
     xmkdir(ROOTMIR, 0755); // .magisk/mirror/system_root
@@ -336,7 +336,7 @@ void RootFSBase::patch_rootfs() {
     // Handle custom sepolicy rules
     xmkdir(TMP_MNTDIR, 0755);
     xmkdir("/dev/block", 0755);
-    mount_rules_dir("/dev/block", TMP_MNTDIR);
+    mount_rules_dir("/dev/block", TMP_MNTDIR); // /dev/block/X 挂载到 /dev/mnt/X
     // Preserve custom rule path
     if (!custom_rules_dir.empty()) {
         string rules_dir = "./" + custom_rules_dir.substr(sizeof(TMP_MNTDIR));
