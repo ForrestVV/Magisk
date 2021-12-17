@@ -160,8 +160,13 @@ public:
     };
 
     void start() override {
-        if (prepare()) patch_rootfs();
-        else patch_rootdir();
+        if (prepare()) {
+            LOGD("[*] patch_rootfs");
+            patch_rootfs();
+        }else{
+            LOGD("[*] patch_rootdir");
+            patch_rootdir();
+        }
         exec_init();
     }
 };

@@ -402,21 +402,27 @@ bool SecondStageInit::prepare() {
     return legacy;
 }
 
+static void dir_log4(const char* dir_path){
+    auto dir = xopen_dir(dir_path);
+    for (dirent *dp; (dp = xreaddir(dir.get()));) {
+        LOGD("%s/%s", dir_path, dp->d_name);
+    }
+}
+
 void BaseInit::exec_init() {
     // Unmount in reverse order
     for (auto &p : reversed(mount_list)) {
         if (xumount(p.data()) == 0)
             LOGD("Unmount [%s]\n", p.data());
     }
+
+    char cur_dir_buf[128];
+    getcwd(cur_dir_buf, sizeof(cur_dir_buf));
+    LOGD("exec_init, current dir: %s", cur_dir_buf);
+    dir_log4("/");
+
     execv("/init", argv);
     exit(1);
-}
-
-static void dir_log3(const char* dir_path){
-    auto dir = xopen_dir(dir_path);
-    for (dirent *dp; (dp = xreaddir(dir.get()));) {
-        LOGD("%s/%s", dir_path, dp->d_name);
-    }
 }
 
 void MagiskInit::setup_tmp(const char *path) {
@@ -444,7 +450,7 @@ void MagiskInit::setup_tmp(const char *path) {
     xsymlink("./magiskinit", "magiskpolicy"); // magiskpolicy link to magiskinit
     xsymlink("./magiskinit", "supolicy"); // supolicy link to magiskinit
 
-    dir_log3(".");
+    dir_log4(".");
 
     chdir("/");
 }

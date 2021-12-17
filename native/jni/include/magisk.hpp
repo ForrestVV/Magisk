@@ -23,7 +23,7 @@ extern std::string  MAGISKTMP;
 #define BLOCKDIR    INTLROOT "/block"
 #define MODULEMNT   INTLROOT "/modules"
 #define BBPATH      INTLROOT "/busybox"
-#define ROOTOVL     INTLROOT "/rootdir"
+#define ROOTOVL     INTLROOT "/rootdir" // patch 后的文件，保存到这里
 #define SHELLPTS    INTLROOT "/pts"
 #define ROOTMNT     ROOTOVL "/.mount_list"
 #define ZYGISKBIN   INTLROOT "/zygisk"

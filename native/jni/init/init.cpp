@@ -164,21 +164,32 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1 && argv[1] == "selinux_setup"sv) { // magiskinit selinux_setup
 //        setup_klog();
+        LOGD("[*]SecondStageInit");
         init = new SecondStageInit(argv);
     } else {
         // This will also mount /sys and /proc
         load_kernel_info(&config);
 
-        if (config.skip_initramfs)
+        if (config.skip_initramfs){
+            LOGD("[*]SARInit");
             init = new SARInit(argv, &config);
-        else if (config.force_normal_boot)
+        }
+        else if (config.force_normal_boot){
+            LOGD("[*]FirstStageInit 1");
             init = new FirstStageInit(argv, &config);
-        else if (access("/sbin/recovery", F_OK) == 0 || access("/system/bin/recovery", F_OK) == 0)
+        }
+        else if (access("/sbin/recovery", F_OK) == 0 || access("/system/bin/recovery", F_OK) == 0){
+            LOGD("[*]RecoveryInit");
             init = new RecoveryInit(argv, &config);
-        else if (check_two_stage())
+        }
+        else if (check_two_stage()){
+            LOGD("[*]FirstStageInit 2");
             init = new FirstStageInit(argv, &config);
-        else
+        }
+        else{
+            LOGD("[*]RootFSInit");
             init = new RootFSInit(argv, &config);
+        }
     }
 
     // Run the main routine

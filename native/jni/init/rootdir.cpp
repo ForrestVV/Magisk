@@ -172,7 +172,7 @@ static void magic_mount(const string &sdir, const string &ddir = "") {
                 magic_mount(src, dest);
             } else {
                 LOGD("Mount [%s] -> [%s]\n", src.data(), dest.data());
-                xmount(src.data(), dest.data(), nullptr, MS_BIND, nullptr);
+                xmount(src.data(), dest.data(), nullptr, MS_BIND, nullptr); // [.magisk/rootdir/init] -> [/init]
                 magic_mount_list += dest;
                 magic_mount_list += '\n';
             }
@@ -231,7 +231,7 @@ void SARBase::patch_rootdir() {
             make_pair(MONOPOLICY, sepol)      /* Redirect /sepolicy to custom path */
          });
         xmkdir(ROOTOVL, 0); // .magisk/rootdir
-        int dest = xopen(ROOTOVL "/init", O_CREAT | O_WRONLY | O_CLOEXEC, 0);
+        int dest = xopen(ROOTOVL "/init", O_CREAT | O_WRONLY | O_CLOEXEC, 0); // patch 后的文件，保存到 ROOTOVL 里
         xwrite(dest, init.buf, init.sz);
         fclone_attr(src, dest);
         close(src);

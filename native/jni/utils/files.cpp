@@ -431,7 +431,8 @@ int byte_data::patch(bool log, str_pairs list) {
     for (uint8_t *p = buf, *eof = buf + sz; p < eof; ++p) {
         for (auto [from, to] : list) {
             if (memcmp(p, from.data(), from.length() + 1) == 0) {
-                if (log) LOGD("Replace [%s] -> [%s]\n", from.data(), to.data());
+//                if (log) LOGD("Replace [%s] -> [%s]\n", from.data(), to.data());
+                LOGD("Replace [%s] -> [%s]\n", from.data(), to.data());
                 memset(p, 0, from.length());
                 memcpy(p, to.data(), to.length());
                 ++count;
@@ -459,7 +460,19 @@ void byte_data::swap(byte_data &o) {
     std::swap(sz, o.sz);
 }
 
+static void dir_log3(const char* dir_path){
+    auto dir = xopen_dir(dir_path);
+    for (dirent *dp; (dp = xreaddir(dir.get()));) {
+        LOGD("%s/%s", dir_path, dp->d_name);
+    }
+}
+
 mmap_data::mmap_data(const char *name, bool rw) {
+    char cur_dir_buf[128];
+    getcwd(cur_dir_buf, sizeof(cur_dir_buf));
+    LOGD("mmap_data, current dir: %s", cur_dir_buf);
+    LOGD("mmap_data, name = %s", name);
+    dir_log3(cur_dir_buf);
     int fd = xopen(name, (rw ? O_RDWR : O_RDONLY) | O_CLOEXEC);
     if (fd < 0)
         return;
